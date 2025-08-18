@@ -16,9 +16,10 @@ class _Predictor:
         self.ts = load.timescale()
         self.sats: Dict[int, EarthSatellite] = {}
 
+    #Caching TLE data
     async def refresh_tles(self) -> None:
         text = None
-        if CACHE_FILE.exists() and (time.time() - CACHE_FILE.stat().st_mtime) < CACHE_TTL:
+        if CACHE_FILE.exists() and (time.time() - CACHE_FILE.stat().st_mtime) < CACHE_TTL: #now - time of last modification
             text = CACHE_FILE.read_text()
         else:
             async with httpx.AsyncClient(timeout=30) as client:
@@ -39,4 +40,23 @@ class _Predictor:
                 continue
         
         self.sats = sats
+
+        def _sat(self, norad_id: int) -> EarthSatellite:
+            return self.sats[norad_id]
         
+        def state_at(self, norad_id: int, at: datetime):
+            
+            t = self.ts.from_datetime(at.replace(tzinfo=timezone.utc))
+            geo = self._sat(norad_id).at(t)
+            sub = wgs84.subpoint(geo)
+            vx, vy, vz = geo.velocity.km_per_s
+            return {
+                "timestamp": at.replace(tzinfo=timezone.utc).isoformat(),
+                "lat": sub.latitude.degrees,
+                "lon": sub.longitude.degrees,
+                "alt_km": sub.elevation.km,
+                "vel_kms": math.sqrt(vx*vx + vy*vy + vz*vz),
+                }
+        
+
+
