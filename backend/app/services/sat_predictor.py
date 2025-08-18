@@ -11,3 +11,7 @@ TLE_URL = "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle"
 CACHE_FILE = DATA_DIR / "active.tle"
 CACHE_TTL = 24 * 3600  # seconds
 
+class _Predictor:
+    def __init__(self) -> None:
+        self.ts = load.timescale()
+        self.sats: Dict[int, EarthSatellite] = {}
