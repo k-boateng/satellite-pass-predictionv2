@@ -27,17 +27,11 @@ class _Predictor:
                 r.raise_for_status()
                 text = r.text
                 CACHE_FILE.write_text(text)
-
-        lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
-        sats: Dict[int, EarthSatellite] = {}
-        for i in range(0, len(lines), 3):
-            if i + 2 >= len(lines): break
-            name, l1, l2 = lines[i], lines[i+1], lines[i+2]
-            try:
-                norad = int(l1.split()[1])
-                sats[norad] = EarthSatellite(l1, l2, name, self.ts)
-            except Exception:
-                continue
+   
+        #loads
+        sats = load.tle_file(TLE_URL)
+        
+        self.sats = {sat.model.satnum: sat for sat in sats}
         
         self.sats = sats
 
