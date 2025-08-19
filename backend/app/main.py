@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes.satellites import router
-import anyio
+import asyncio
 
 REFRESH_SECONDS = 6 * 60 * 60  # every 6h
 
@@ -20,11 +20,16 @@ app.add_middleware(
 async def startup():
     
     from app.services.sat_predictor import predictor
+
     async def refresher():
         while True:
-            await predictor.refresh_tles()
-            await anyio.sleep(REFRESH_SECONDS)
-    anyio.create_task_group().start_soon(refresher)
+            try:
+                await predictor.refresh_tles()
+                await asyncio.sleep(REFRESH_SECONDS)
+            except Exception: #Keeps loop alive
+                pass
+            
+    asyncio.create_task(refresher())
 
 @app.get("/healthz")
 def healthz():
