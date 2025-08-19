@@ -16,3 +16,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+async def startup():
+    
+    from app.services.sat_predictor import predictor
+    async def refresher():
+        while True:
+            await predictor.refresh_tles()
+            await anyio.sleep(REFRESH_SECONDS)
+    anyio.create_task_group().start_soon(refresher)
+
+@app.get("/healthz")
+def healthz():
+    return {"ok": True}
+
