@@ -4,7 +4,9 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { drawThreeGeo } from "./threeGeoJSON.js";
 
 export default function GlobeScene() {
- 
+    
+    const containerRef = useRef(null);
+
     useEffect(() => {
 
         const container = containerRef.current;
