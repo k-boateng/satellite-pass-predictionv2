@@ -140,7 +140,7 @@ export default function GlobeScene() {
 
     pollSwarm();
     
-    
+
 
         //Starry background
         const starObjs = [];
@@ -202,14 +202,24 @@ export default function GlobeScene() {
 
         //animation
         let rafId = 0;
+        const LERP = 0.18;
+
         const animate = () => {
-            rafId = requestAnimationFrame(animate);
-           
+        rafId = requestAnimationFrame(animate);
 
-            controls.update();
-            renderer.render(scene, camera);
+        const N = Math.min(noradIds.length, MAX_SATS);
+        for (let i = 0; i < N; i++) {
+            if (!initialized[i]) continue;
+            const t = targets[i];
+            if (t) currents[i].lerp(t, LERP);
+            _m.compose(currents[i], _q, _s);
+            swarm.setMatrixAt(i, _m);
+        }
+        swarm.instanceMatrix.needsUpdate = true;
 
-            };
+        controls.update();
+        renderer.render(scene, camera);
+        };
         animate();
 
         //resize handling
