@@ -1,23 +1,8 @@
-import { useEffect } from 'react';
-import * as THREE from 'three';
-
-
+import GlobeScene from "./GlobeScene";
 
 
 function App() {
-  useEffect(()=>{
-    const scene = new THREE.Scene();
-
-    
-  })
-
-  return (
-    <>
-      <div>
-        <canvas id="threejscanvas"/>
-      </div>
-    </>
-  )
+return <GlobeScene />;
 }
 
 export default App
