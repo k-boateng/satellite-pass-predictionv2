@@ -19,12 +19,28 @@ export class SatelliteDot {
     this.pollMs = pollMs;
     this.lerpSpeed = lerpSpeed;
 
+    //basic dot
     this.mesh = new THREE.Mesh(
       new THREE.SphereGeometry(dotRadius, 16, 16),
       new THREE.MeshBasicMaterial({ color })
     );
     this.mesh.renderOrder = 5;
+    this.mesh.userData.satRef = this;
     this.scene.add(this.mesh);
+
+    // halo glow - visible on mouse hover
+    const glowGeom = new THREE.SphereGeometry(dotRadius * 2.0, 16, 16);
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: 0xffa500,         // orange
+      transparent: true,
+      opacity: 0.4,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    this.glow = new THREE.Mesh(glowGeom, glowMat);
+    this.glow.visible = false;
+    this.glow.userData.satRef = this;
+    this.mesh.add(this.glow);
 
     this.current = new THREE.Vector3(0, 0, earthRadius * 1.02);
     this.target = this.current.clone();
@@ -32,7 +48,13 @@ export class SatelliteDot {
     this._stopped = false;
     this._timer = null;
     this._poll = this._poll.bind(this);
-  }
+
+    this._hovered = false;
+    this._selected = false;
+    this._baseColor = color;
+    this.orbitGroup = null;
+  
+}
 
   async _poll() {
   try {
