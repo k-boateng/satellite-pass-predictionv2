@@ -239,7 +239,12 @@ export default function GlobeScene() {
         cancelAnimationFrame(rafId);
         ro.disconnect();
         controls.dispose();
-
+        
+        swarmStop = true;
+        scene.remove(swarm);
+        satGeom.dispose();
+        satMat.dispose();
+        cancelAnimationFrame(rafId);
         
         if (countriesGroup) scene.remove(countriesGroup);
         scene.remove(line);
