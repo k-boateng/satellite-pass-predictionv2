@@ -31,7 +31,7 @@ export default function GlobeScene() {
         controls.minDistance = 6;
         controls.maxDistance = 20;
 
-        const geometry = new THREE.SphereGeometry(5, 64, 64);
+        const geometry = new THREE.SphereGeometry(5);
         const lineMat = new THREE.LineBasicMaterial({
         color: 0x000000,
         transparent: true,
