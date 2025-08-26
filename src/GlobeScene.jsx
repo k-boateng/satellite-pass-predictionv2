@@ -2,6 +2,8 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { drawThreeGeo } from "./threeGeoJSON.js";
+import { latLonAltToVec3 } from "./latlonToVector.js"
+
 
 export default function GlobeScene() {
     
@@ -55,7 +57,24 @@ export default function GlobeScene() {
         })
         .catch((e) => console.error("GeoJSON load error:", e));
 
+        // Satellite Swarm
+        const MAX_SATS = 200;
+        const DOT_RADIUS = 0.12;
 
+        const satGeom = new THREE.SphereGeometry(DOT_RADIUS, 10, 10);
+        const satMat  = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const swarm   = new THREE.InstancedMesh(satGeom, satMat, MAX_SATS);
+        swarm.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        swarm.renderOrder = 5;
+        scene.add(swarm);
+
+        // math helpers for swarm
+        const _m = new THREE.Matrix4();
+        const _q = new THREE.Quaternion();
+        const _s = new THREE.Vector3(1, 1, 1);
+        
+
+        //Starry background
         const starObjs = [];
         (function starBackground() {
         const starCount = 4000;
@@ -117,8 +136,11 @@ export default function GlobeScene() {
         let rafId = 0;
         const animate = () => {
             rafId = requestAnimationFrame(animate);
+           
+
             controls.update();
             renderer.render(scene, camera);
+
             };
         animate();
 
@@ -134,6 +156,7 @@ export default function GlobeScene() {
         ro.observe(container);
 
         
+        //Cleanup
         return () => {
         cancelAnimationFrame(rafId);
         ro.disconnect();
