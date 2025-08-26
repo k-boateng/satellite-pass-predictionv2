@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from app.services.sat_predictor import predictor
 from app.models.satellite import State, Groundtrack, PassEvent
+
 
 router = APIRouter()
 
@@ -10,6 +11,8 @@ router = APIRouter()
 async def state(norad_id: int, at: Optional[datetime] = None):
     if not predictor.sats:
         await predictor.refresh_tles()
+    if norad_id not in predictor.sats:
+        raise HTTPException(status_code=404, detail=f"NORAD ID {norad_id} not found in loaded TLEs")
     at = at or datetime.now(timezone.utc)
     return predictor.state_at(norad_id, at)
 
