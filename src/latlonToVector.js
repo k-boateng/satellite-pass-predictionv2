@@ -1,3 +1,5 @@
+import * as THREE from "three";
+
 export function latLonAltToVec3(latDeg, lonDeg, altKm, earthRadius = 5, earthRadiusKm = 6371) {
   
     const r = earthRadius * (1 + altKm / earthRadiusKm);
