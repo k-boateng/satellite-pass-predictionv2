@@ -53,7 +53,7 @@ export default function GlobeScene() {
         })
         .catch((e) => console.error("GeoJSON load error:", e));
 
-        
+
         const starObjs = [];
         (function starBackground() {
         const starCount = 4000;
@@ -110,5 +110,60 @@ export default function GlobeScene() {
             starObjs.push({ geom, mat, stars, tex: textures[i] });
         });
         })();
+
+        //animation
+        let rafId = 0;
+        const animate = () => {
+            rafId = requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+            };
+        animate();
+
+        //resize handling
+        const onResize = () => {
+            const w2 = container.clientWidth;
+            const h2 = container.clientHeight;
+            camera.aspect = w2 / h2;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w2, h2);
+            };
+        const ro = new ResizeObserver(onResize);
+        ro.observe(container);
+
+        
+        return () => {
+        cancelAnimationFrame(rafId);
+        ro.disconnect();
+        controls.dispose();
+
+        
+        if (countriesGroup) scene.remove(countriesGroup);
+        scene.remove(line);
+        starObjs.forEach(({ stars }) => scene.remove(stars));
+
+
+        edges.dispose();
+        geometry.dispose();
+        lineMat.dispose();
+
+        starObjs.forEach(({ geom, mat, tex }) => {
+            geom.dispose();
+            mat.dispose();
+            tex?.dispose?.();
+        });
+
+        renderer.dispose();
+        container.removeChild(renderer.domElement);
+        };
+    }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{ width: "100vw", height: "100vh", overflow: "hidden" }}
+    />
+  );
+}
 
 
