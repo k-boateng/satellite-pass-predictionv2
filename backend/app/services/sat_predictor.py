@@ -29,11 +29,9 @@ class _Predictor:
                 CACHE_FILE.write_text(text)
    
         #loads
-        sats = load.tle_file(TLE_URL)
+        sats_list = load.tle_file(str(CACHE_FILE))
         
-        self.sats = {sat.model.satnum: sat for sat in sats}
-        
-        self.sats = sats
+        self.sats = {int(sat.model.satnum): sat for sat in sats_list}
 
     def _sat(self, norad_id: int) -> EarthSatellite:
         return self.sats[norad_id]
