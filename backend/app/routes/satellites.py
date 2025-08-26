@@ -37,3 +37,8 @@ async def passes(lat: float, lon: float, alt_m: float = 0,
     ids = [int(x) for x in (norad_ids.split(",") if norad_ids else [])] or list(predictor.sats.keys())[:50]
     return predictor.passes_over(ids, lat, lon, alt_m, start, end)
 
+@router.get("/debug/sat-ids")
+async def sat_ids(limit: int = 10):
+    if not predictor.sats:
+        await predictor.refresh_tles()
+    return sorted(list(predictor.sats.keys()))[:limit]
