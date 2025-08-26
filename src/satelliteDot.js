@@ -95,7 +95,57 @@ export class SatelliteDot {
     this.mesh.material.color.set(flag ? 0x00ff00 : (this._hovered ? 0xffa500 : this._baseColor));
   }
 
+  async showOrbit() {
+    await hideOrbit(); //Clears everything first
+    try {
+    //Fetches groundtrack from the api
+      const r = await fetch(`${this.baseUrl}/api/satellites/${this.noradId}/groundtrack?step_s=60`);
+      if (!r.ok) return;
+      const data = await r.json();
+      const pts = data.points;
 
+            // build segments, splitting at the date-line seam
+      const group = new THREE.Group();
+      const seg = [];
+      let prevLon = null;
+      const radius = this.earthRadius * 1.003;
+
+      const makeLine = (arr) => {
+        if (arr.length < 2) return;
+        const verts = [];
+        for (const [lat, lon] of arr) {
+          const v = latLonAltToVec3(lat, lon, 0, radius);
+          verts.push(v.x, v.y, v.z);
+        }
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+        const mat = new THREE.LineBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.9 });
+        const line = new THREE.Line(geom, mat);
+        line.renderOrder = 4;
+        group.add(line);
+      };
+
+      for (const [lat, lon] of pts) {
+        if (prevLon !== null && Math.abs(lon - prevLon) > 180) {
+          makeLine(seg.splice(0, seg.length)); // flush segment
+        }
+        seg.push([lat, lon]);
+        prevLon = lon;
+      }
+      makeLine(seg);
+
+      this.scene.add(group);
+      this.orbitGroup = group;
+    } catch {}
+  }
+
+  }
+
+  async hideOrbit() {
+
+    
+
+  }
 
   dispose() {
     this._stopped = true;
