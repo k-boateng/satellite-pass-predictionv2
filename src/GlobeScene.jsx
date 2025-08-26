@@ -72,7 +72,16 @@ export default function GlobeScene() {
         const _m = new THREE.Matrix4();
         const _q = new THREE.Quaternion();
         const _s = new THREE.Vector3(1, 1, 1);
+
+        // state
+        let swarmStop = false;
+        let noradIds = [];
+        const targets    = Array.from({ length: MAX_SATS }, () => null);
+        const currents   = Array.from({ length: MAX_SATS }, () => new THREE.Vector3());
+        const initialized = Array.from({ length: MAX_SATS }, () => false);
+
         
+        swarm.count = 0;
 
         //Starry background
         const starObjs = [];
