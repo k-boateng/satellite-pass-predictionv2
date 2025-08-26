@@ -83,6 +83,65 @@ export default function GlobeScene() {
         
         swarm.count = 0;
 
+        async function fetchIds() {
+            try {
+                const r = await fetch("http://127.0.0.1:8000/api/debug/sat-ids?limit=800");
+                if (r.ok) {
+                const ids = await r.json();
+                // random sample up to MAX_SATS
+                const pick = [];
+                const used = new Set();
+                while (pick.length < Math.min(ids.length, MAX_SATS)) {
+                    const k = (Math.random() * ids.length) | 0;
+                    if (!used.has(k)) { used.add(k); pick.push(ids[k]); }
+                }
+                return pick;
+                }
+            } catch {}
+            return [25544]; // fallback
+            }
+        
+        async function pollSwarm() {
+            if (!noradIds.length) noradIds = await fetchIds();
+            const N = Math.min(noradIds.length, MAX_SATS);
+
+            const CHUNK = 25, GAP_MS = 250;
+
+            const fetchOne = async (i, id) => {
+                try {
+                const r = await fetch(`http://127.0.0.1:8000/api/satellites/${id}/state`);
+                if (!r.ok) return;
+                const s = await r.json();
+                const p = latLonAltToVec3(s.lat, s.lon, s.alt_km, 5);  // NOTE: lon is negated inside this
+                targets[i] = p;
+
+                if (!initialized[i]) {
+                    // snap current to target and write matrix now
+                    currents[i].copy(p);
+                    _m.compose(currents[i], _q, _s);
+                    swarm.setMatrixAt(i, _m);
+                    initialized[i] = true;
+
+                    //bump swarm.count so this instance starts rendering only now
+                    const visible = initialized.filter(Boolean).length;
+                    swarm.count = visible;
+                    swarm.instanceMatrix.needsUpdate = true;
+                }
+                } catch {}
+            };
+
+        for (let i = 0; i < N; i += CHUNK) {
+            await Promise.all(noradIds.slice(i, i + CHUNK).map((id, k) => fetchOne(i + k, id)));
+            if (i + CHUNK < N) await new Promise(res => setTimeout(res, GAP_MS));
+        }
+
+        if (!swarmStop) setTimeout(pollSwarm, 5000);
+        }
+
+    pollSwarm();
+    
+    
+
         //Starry background
         const starObjs = [];
         (function starBackground() {
