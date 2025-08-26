@@ -104,7 +104,7 @@ export class SatelliteDot {
       const data = await r.json();
       const pts = data.points;
 
-            // build segments, splitting at the date-line seam
+    // build segments, splitting at the date-line seam
       const group = new THREE.Group();
       const seg = [];
       let prevLon = null;
@@ -139,19 +139,31 @@ export class SatelliteDot {
     } catch {}
   }
 
-  }
+    async hideOrbit() {
 
-  async hideOrbit() {
-
+    if (!this.orbitGroup) return;
+    this.scene.remove(this.orbitGroup);
+    // dispose children
+    this.orbitGroup.traverse((obj) => {
+      if (obj.isLine) {
+        obj.geometry?.dispose?.();
+        obj.material?.dispose?.();
+      }
+    });
     
-
+    this.orbitGroup = null;
   }
+
+
 
   dispose() {
     this._stopped = true;
     if (this._timer) clearTimeout(this._timer);
+    this.hideOrbit();
     this.scene.remove(this.mesh);
     this.mesh.geometry.dispose();
     this.mesh.material.dispose();
+    this.glow.geometry.dispose();
+    this.glow.material.dispose();
   }
 }
