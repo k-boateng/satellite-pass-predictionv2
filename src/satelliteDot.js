@@ -60,9 +60,8 @@ export class SatelliteDot {
   try {
     const r = await fetch(`${this.baseUrl}/api/satellites/${this.noradId}/state`);
     if (r.ok) {
-      const s = await r.json(); // <-- define s here
+      const s = await r.json();
       this.target = latLonAltToVec3(s.lat, s.lon, s.alt_km, this.earthRadius);
-      // on very first valid fetch, snap current to target so it’s visible off origin
       if (this.current.length() === 0) this.current.copy(this.target);
     } else {
       console.warn("[state !ok]", this.noradId, r.status);
@@ -82,6 +81,21 @@ export class SatelliteDot {
     this.current.lerp(this.target, k);
     this.mesh.position.copy(this.current);
   }
+
+  setHover(flag) {
+    this._hovered = flag;
+    this.glow.visible = flag;
+    if (!this._selected) {
+      this.mesh.material.color.set(flag ? 0xffa500 : this._baseColor); // orange on hover
+    }
+  }
+
+  setSelected(flag) {
+    this._selected = flag;
+    this.mesh.material.color.set(flag ? 0x00ff00 : (this._hovered ? 0xffa500 : this._baseColor));
+  }
+
+
 
   dispose() {
     this._stopped = true;
