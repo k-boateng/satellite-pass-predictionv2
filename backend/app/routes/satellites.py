@@ -2,10 +2,12 @@ from fastapi import APIRouter, Query, HTTPException
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from app.services.sat_predictor import predictor
-from app.models.satellite import State, Groundtrack, PassEvent
+from app.models.satellite import State, Groundtrack, PassEvent, SatSummary
+import math
 
 
 router = APIRouter()
+
 
 @router.get("/satellites/{norad_id}/state", response_model=State)
 async def state(norad_id: int, at: Optional[datetime] = None):
@@ -39,6 +41,42 @@ async def passes(lat: float, lon: float, alt_m: float = 0,
     end = end or (start + timedelta(hours=24))
     ids = [int(x) for x in (norad_ids.split(",") if norad_ids else [])] or list(predictor.sats.keys())[:50]
     return predictor.passes_over(ids, lat, lon, alt_m, start, end)
+
+@router.get("/satellites/{norad_id}/summary", response_model=SatSummary)
+async def satellite_summary(norad_id: int):
+    if not predictor.sats:
+        await predictor.refresh_tles()
+    if norad_id not in predictor.sats:
+        raise HTTPException(404, f"NORAD ID {norad_id} not found in loaded TLEs")
+
+    sat = predictor._sat(norad_id)
+
+    now = datetime.now(timezone.utc)
+    st = predictor.state_at(norad_id, now)
+
+    # Period calculation
+    n = getattr(sat.model, "no_kozai", None) or getattr(sat.model, "no", None)
+    if not n:
+        raise HTTPException(500, f"Mean motion missing for {norad_id}")
+    period_minutes = float((2.0 * math.pi) / n)
+
+    #Retrieve epoch
+    try:
+        epoch_dt = sat.epoch.utc_datetime()
+    except Exception:
+        yy = int(sat.model.epochyr)
+        year = 1900 + yy if yy >= 57 else 2000 + yy
+        doy = float(sat.model.epochdays) 
+        epoch_dt = datetime(year, 1, 1, tzinfo=timezone.utc) + timedelta(days=doy - 1)
+
+    return {
+        "name": sat.name or str(norad_id),
+        "norad_id": norad_id,
+        "velocity_kms": st["vel_kms"],
+        "altitude_km": st["alt_km"],
+        "period_minutes": period_minutes,
+        "epoch_utc": epoch_dt
+    }  
 
 @router.get("/debug/sat-ids")
 async def sat_ids(limit: int = 10):
