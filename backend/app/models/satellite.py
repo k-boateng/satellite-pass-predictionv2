@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Tuple
+from datetime import datetime
 
 
 class SatSummary(BaseModel):
@@ -8,6 +9,7 @@ class SatSummary(BaseModel):
     velocity_kms: float
     altitude_km: float
     period_minutes: float
+    epoch_utc: datetime
 
 class State(BaseModel):
     timestamp: str
