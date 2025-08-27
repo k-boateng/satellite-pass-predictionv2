@@ -1,6 +1,14 @@
 from pydantic import BaseModel
 from typing import List, Tuple
 
+
+class SatSummary(BaseModel):
+    name: str
+    norad_id: int
+    velocity_kms: float
+    altitude_km: float
+    period_minutes: float
+
 class State(BaseModel):
     timestamp: str
     lat: float
