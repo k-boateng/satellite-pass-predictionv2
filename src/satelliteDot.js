@@ -134,80 +134,80 @@ export class SatelliteDot {
   }
 
   async showOrbit() {
-  await this.hideOrbit(); // clear any previous orbit first
+    await this.hideOrbit(); // clear any previous orbit first
 
-  try {
-    // 1) get current altitude
-    const stateRes = await fetch(`${this.baseUrl}/api/satellites/${this.noradId}/state`);
-    if (!stateRes.ok) return;
-    const s = await stateRes.json();
-    const altKm = s.alt_km ?? 0;
+    try {
+        // get current altitude
+        const stateRes = await fetch(`${this.baseUrl}/api/satellites/${this.noradId}/state`);
+        if (!stateRes.ok) return;
+        const s = await stateRes.json();
+        const altKm = s.alt_km ?? 0;
 
-    // scene radius at this altitude
-    const orbitRadius = this.earthRadius * (1 + altKm / 6371);
+        // scene radius at this altitude
+        const orbitRadius = this.earthRadius * (1 + altKm / 6371);
 
-    //get the groundtrack lat/lon series
-    const r = await fetch(`${this.baseUrl}/api/satellites/${this.noradId}/groundtrack?step_s=60`);
-    if (!r.ok) return;
-    const data = await r.json();
-    const pts = data.points || [];  // [[lat, lon], ...]
+        //get the groundtrack lat/lon series
+        const r = await fetch(`${this.baseUrl}/api/satellites/${this.noradId}/groundtrack?step_s=60`);
+        if (!r.ok) return;
+        const data = await r.json();
+        const pts = data.points || [];  // [[lat, lon], ...]
 
-    if (!Array.isArray(pts) || pts.length < 2) return;
+        if (!Array.isArray(pts) || pts.length < 2) return;
 
-    // build a 3D "space orbit" line at orbitRadius
-    const group = new THREE.Group();
+        // build a 3D "space orbit" line at orbitRadius
+        const group = new THREE.Group();
 
-    const addSeg = (arr) => {
-      if (!arr || arr.length < 2) return;
-      const verts = [];
-      for (const [la, lo] of arr) {
-        // place this vertex at the satellite's altitude
-        const v = latLonAltToVec3(la, lo, 0, orbitRadius);
-        verts.push(v.x, v.y, v.z);
-      }
-      const geom = new THREE.BufferGeometry();
-      geom.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
-      const mat = new THREE.LineBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.9 });
-      const line = new THREE.Line(geom, mat);
-      line.renderOrder = 4;
-      group.add(line);
-    };
+        const addSeg = (arr) => {
+        if (!arr || arr.length < 2) return;
+        const verts = [];
+        for (const [la, lo] of arr) {
+            // place this vertex at the satellite's altitude
+            const v = latLonAltToVec3(la, lo, 0, orbitRadius);
+            verts.push(v.x, v.y, v.z);
+        }
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+        const mat = new THREE.LineBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.9 });
+        const line = new THREE.Line(geom, mat);
+        line.renderOrder = 4;
+        group.add(line);
+        };
 
-    // Start segment with the satellite’s current position so it "originates" from the dot
-    let seg = [[s.lat, s.lon]];
-    let prevLon = s.lon;
+        // Start segment with the satellite’s current position so it "originates" from the dot
+        let seg = [[s.lat, s.lon]];
+        let prevLon = s.lon;
 
-    for (const [la, lo] of pts) {
-      if (prevLon !== null && Math.abs(lo - prevLon) > 180) {
+        for (const [la, lo] of pts) {
+        if (prevLon !== null && Math.abs(lo - prevLon) > 180) {
+            addSeg(seg);
+            seg = [];
+        }
+        seg.push([la, lo]);
+        prevLon = lo;
+        }
         addSeg(seg);
-        seg = [];
-      }
-      seg.push([la, lo]);
-      prevLon = lo;
-    }
-    addSeg(seg);
 
-    this.scene.add(group);
-    this.orbitGroup = group;
-  } catch (e) {
-    console.warn("space-orbit error", this.noradId, e);
-  }
-}
+        this.scene.add(group);
+        this.orbitGroup = group;
+    } catch (e) {
+        console.warn("space-orbit error", this.noradId, e);
+    }
+    }
 
     async hideOrbit() {
 
-    if (!this.orbitGroup) return;
-    this.scene.remove(this.orbitGroup);
-    // dispose children
-    this.orbitGroup.traverse((obj) => {
-      if (obj.isLine) {
-        obj.geometry?.dispose?.();
-        obj.material?.dispose?.();
-      }
-    });
-    
-    this.orbitGroup = null;
-  }
+        if (!this.orbitGroup) return;
+        this.scene.remove(this.orbitGroup);
+        // dispose children
+        this.orbitGroup.traverse((obj) => {
+        if (obj.isLine) {
+            obj.geometry?.dispose?.();
+            obj.material?.dispose?.();
+        }
+        });
+        
+        this.orbitGroup = null;
+    }
 
 
 
