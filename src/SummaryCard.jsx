@@ -34,6 +34,8 @@ export default function SummaryCard({ data, loading, error, onClose }) {
   const v = { fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" };
 
   const fmtNum = (x, d = 2) => (x == null ? "—" : Number(x).toFixed(d));
+  const fmtLat = (v) => v == null ? "—" : `${Math.abs(v).toFixed(2)}° ${v >= 0 ? "N" : "S"}`;
+  const fmtLon = (v) => v == null ? "—" : `${Math.abs(v).toFixed(2)}° ${v >= 0 ? "E" : "W"}`;
   const fmtUTC = (isoOrDate) => {
     if (!isoOrDate) return "—";
     const d = typeof isoOrDate === "string" ? new Date(isoOrDate) : isoOrDate;
@@ -68,6 +70,14 @@ export default function SummaryCard({ data, loading, error, onClose }) {
           <div style={row}>
             <div style={k}>Velocity</div>
             <div style={v}>{fmtNum(data.velocity_kms, 2)} km/s</div>
+          </div>
+          <div style={row}>
+            <div style={k}>Latitude</div>
+            <div style={v}>{fmtLat(data.lat)}</div>
+          </div>
+          <div style={row}>
+            <div style={k}>Longitude</div>
+            <div style={v}>{fmtLon(data.lon)}</div>
           </div>
           <div style={row}>
             <div style={k}>Altitude</div>

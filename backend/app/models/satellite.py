@@ -10,6 +10,8 @@ class SatSummary(BaseModel):
     altitude_km: float
     period_minutes: float
     epoch_utc: datetime
+    lat: float
+    lon: float
 
 class State(BaseModel):
     timestamp: str

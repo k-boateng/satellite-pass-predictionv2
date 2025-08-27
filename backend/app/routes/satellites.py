@@ -73,6 +73,8 @@ async def satellite_summary(norad_id: int):
         "name": sat.name or str(norad_id),
         "norad_id": norad_id,
         "velocity_kms": st["vel_kms"],
+        "lat": st["lat"],
+        "lon": st["lon"],
         "altitude_km": st["alt_km"],
         "period_minutes": period_minutes,
         "epoch_utc": epoch_dt
