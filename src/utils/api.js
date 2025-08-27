@@ -15,3 +15,10 @@ export async function fetchGeoJSON(path) {
   if (!r.ok) throw new Error(`GeoJSON load error: ${r.status}`);
   return r.json();
 }
+
+export async function fetchSummary(noradId, { signal } = {}) {
+  const r = await fetch(`${BASE}/api/satellites/${noradId}/summary`, { signal });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+

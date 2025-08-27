@@ -14,3 +14,4 @@ export function findSatDot(object) {
   return o?.userData?.satRef ?? null; // returns SatelliteDot or null
 }
 
+
