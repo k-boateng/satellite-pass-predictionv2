@@ -15,6 +15,13 @@ export default function GlobeScene() {
     
     const containerRef = useRef(null);
 
+    const [utc, setUtc] = useState(() => new Date());
+    const [summaryOpen, setSummaryOpen] = useState(false);
+    const [summaryLoading, setSummaryLoading] = useState(false);
+    const [summaryError, setSummaryError] = useState(null);
+    const [summaryData, setSummaryData] = useState(null);
+    const summaryAbortRef = useRef(null);
+
     useEffect(() => {
 
         const container = containerRef.current;
