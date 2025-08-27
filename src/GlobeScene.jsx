@@ -5,286 +5,261 @@ import { drawThreeGeo } from "./threeGeoJSON.js";
 import { SatelliteDot } from "./satelliteDot.js";
 import ClockHUD from "./Hud.jsx";
 import SummaryCard from "./SummaryCard.jsx";
+
+// NEW utils
 import { BASE, fetchIds, fetchGeoJSON, fetchSummary } from "./utils/api.js";
 import { sampleUnique } from "./utils/random.js";
-import { eventToNDC, findSatRef } from "./utils/picking.js";
+import { eventToNDC, findSatDot } from "./utils/picking.js";
 import { createStars, disposeStars } from "./utils/stars.js";
 
-
 export default function GlobeScene() {
-    
-    const containerRef = useRef(null);
+  const containerRef = useRef(null);
 
-    const [utc, setUtc] = useState(() => new Date());
-    const [summaryOpen, setSummaryOpen] = useState(false);
-    const [summaryLoading, setSummaryLoading] = useState(false);
-    const [summaryError, setSummaryError] = useState(null);
-    const [summaryData, setSummaryData] = useState(null);
-    const summaryAbortRef = useRef(null);
+  // UI state
+  const [utc, setUtc] = useState(() => new Date());
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState(null);
+  const [summaryData, setSummaryData] = useState(null);
+  const summaryAbortRef = useRef(null);
 
-    useEffect(() => {
+  useEffect(() => {
+    const container = containerRef.current;
+    const w = container.clientWidth;
+    const h = container.clientHeight;
 
-        const container = containerRef.current;
-        const w = container.clientWidth;
-        const h = container.clientHeight;
+    // tick UTC clock
+    const clock = setInterval(() => setUtc(new Date()), 1000);
 
-        //UTC Clock
-        const clock = setInterval(() => setUtc(new Date()), 1000);
+    // scene
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xfaf7f0);
 
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xfaf7f0);
+    const camera = new THREE.PerspectiveCamera(75, w / h, 1, 100);
+    camera.position.z = 10;
 
-        const camera = new THREE.PerspectiveCamera(75, w / h, 1, 100);
-        camera.position.z = 10;
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(w, h);
+    renderer.domElement.style.display = "block";
+    renderer.domElement.style.touchAction = "none";
+    container.appendChild(renderer.domElement);
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(w, h);
-        container.appendChild(renderer.domElement);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.minDistance = 6;
+    controls.maxDistance = 60;
 
+    // globe wireframe
+    const geometry = new THREE.SphereGeometry(5);
+    const lineMat = new THREE.LineBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.2,
+      depthWrite: false,
+    });
+    const edges = new THREE.EdgesGeometry(geometry, 5);
+    const line = new THREE.LineSegments(edges, lineMat);
+    line.renderOrder = 9;
+    scene.add(line);
 
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.minDistance = 6;
-        controls.maxDistance = 20;
-
-        const geometry = new THREE.SphereGeometry(5);
-        const lineMat = new THREE.LineBasicMaterial({
-        color: 0x000000,
-        transparent: true,
-        opacity: 0.2,
+    // countries
+    let countriesGroup = null;
+    fetchGeoJSON("/geojson/countries_states.geojson")
+      .then((data) => {
+        countriesGroup = drawThreeGeo({
+          json: data,
+          radius: 5,
+          materialOptions: { color: 0x000000, opacity: 0.3 },
         });
-        const edges = new THREE.EdgesGeometry(geometry, 5);
-        const line = new THREE.LineSegments(edges, lineMat);
-        scene.add(line);
-
-    
-        let countriesGroup = null;
-        fetch("/geojson/countries_states.geojson")
-        .then((r) => r.json())
-        .then((data) => {
-            countriesGroup = drawThreeGeo({
-            json: data,
-            radius: 5,
-            materialOptions: { color: 0x000000 },
-            });
-            scene.add(countriesGroup);
-        })
-        .catch((e) => console.error("GeoJSON load error:", e));
-
-        // Satellite Swarm
-        const MAX_SATS = 200;
-        const DOT_RADIUS = 0.12;
-
-        const satGeom = new THREE.SphereGeometry(DOT_RADIUS, 10, 10);
-        const satMat  = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-        const swarm   = new THREE.InstancedMesh(satGeom, satMat, MAX_SATS);
-        swarm.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        swarm.renderOrder = 5;
-        scene.add(swarm);
-
-        // math helpers for swarm
-        const _m = new THREE.Matrix4();
-        const _q = new THREE.Quaternion();
-        const _s = new THREE.Vector3(1, 1, 1);
-
-        // state
-        let swarmStop = false;
-        let noradIds = [];
-        const targets    = Array.from({ length: MAX_SATS }, () => null);
-        const currents   = Array.from({ length: MAX_SATS }, () => new THREE.Vector3());
-        const initialized = Array.from({ length: MAX_SATS }, () => false);
-
-        
-        swarm.count = 0;
-
-        async function fetchIds() {
-            try {
-                const r = await fetch("http://127.0.0.1:8000/api/debug/sat-ids?limit=800");
-                if (r.ok) {
-                const ids = await r.json();
-                // random sample up to MAX_SATS
-                const pick = [];
-                const used = new Set();
-                while (pick.length < Math.min(ids.length, MAX_SATS)) {
-                    const k = (Math.random() * ids.length) | 0;
-                    if (!used.has(k)) { used.add(k); pick.push(ids[k]); }
-                }
-                return pick;
-                }
-            } catch {}
-            return [25544]; // fallback
-            }
-        
-        async function pollSwarm() {
-            if (!noradIds.length) noradIds = await fetchIds();
-            const N = Math.min(noradIds.length, MAX_SATS);
-
-            const CHUNK = 25, GAP_MS = 250;
-
-            const fetchOne = async (i, id) => {
-                try {
-                const r = await fetch(`http://127.0.0.1:8000/api/satellites/${id}/state`);
-                if (!r.ok) return;
-                const s = await r.json();
-                const p = latLonAltToVec3(s.lat, s.lon, s.alt_km, 5);  // NOTE: lon is negated inside this
-                targets[i] = p;
-
-                if (!initialized[i]) {
-                    // snap current to target and write matrix now
-                    currents[i].copy(p);
-                    _m.compose(currents[i], _q, _s);
-                    swarm.setMatrixAt(i, _m);
-                    initialized[i] = true;
-
-                    //bump swarm.count so this instance starts rendering only now
-                    const visible = initialized.filter(Boolean).length;
-                    swarm.count = visible;
-                    swarm.instanceMatrix.needsUpdate = true;
-                }
-                } catch {}
-            };
-
-        for (let i = 0; i < N; i += CHUNK) {
-            await Promise.all(noradIds.slice(i, i + CHUNK).map((id, k) => fetchOne(i + k, id)));
-            if (i + CHUNK < N) await new Promise(res => setTimeout(res, GAP_MS));
-        }
-
-        if (!swarmStop) setTimeout(pollSwarm, 5000);
-        }
-
-    pollSwarm();
-    
-
-
-        //Starry background
-        const starObjs = [];
-        (function starBackground() {
-        const starCount = 4000;
-        const minRadius = controls.maxDistance + 0.5;
-        const maxRadius = camera.far * 0.95;
-
-        const texturePaths = [
-            "/trans_star.png",
-            "/trans_star2.png",
-            "/trans_star3.png",
-            "/trans_star4.png",
-        ];
-        const loader = new THREE.TextureLoader();
-        const textures = texturePaths.map((p) => loader.load(p));
-
-        const buckets = textures.map(() => []);
-
-        for (let i = 0; i < starCount; i++) {
-            const u = Math.random(),
-            v = Math.random();
-            const theta = 2 * Math.PI * u;
-            const phi = Math.acos(2 * v - 1);
-
-            const t = Math.random();
-            const r = Math.cbrt(minRadius ** 3 + t * (maxRadius ** 3 - minRadius ** 3));
-
-            const x = r * Math.sin(phi) * Math.cos(theta);
-            const y = r * Math.sin(phi) * Math.sin(theta);
-            const z = r * Math.cos(phi);
-
-            const idx = (Math.random() * textures.length) | 0;
-            buckets[idx].push(x, y, z);
-        }
-
-        buckets.forEach((positions, i) => {
-            if (!positions.length) return;
-
-            const geom = new THREE.BufferGeometry();
-            geom.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-
-            const mat = new THREE.PointsMaterial({
-            map: textures[i],
-            color: 0xffffff,
-            size: 1.0,
-            sizeAttenuation: true,
-            transparent: true,
-            alphaTest: 0.3,
-            depthWrite: false,
-            blending: THREE.NormalBlending,
-            });
-
-            const stars = new THREE.Points(geom, mat);
-            scene.add(stars);
-            starObjs.push({ geom, mat, stars, tex: textures[i] });
+        countriesGroup.traverse((o) => {
+          if (o.material) {
+            o.material.depthWrite = false;
+            o.renderOrder = 10;
+          }
         });
-        })();
+        scene.add(countriesGroup);
+      })
+      .catch((e) => console.error("GeoJSON load error:", e));
 
-        //animation
-        let rafId = 0;
-        const LERP = 0.18;
+    // satellites
+    const sats = [];
+    const startTimers = [];
+    const COUNT = 800;
+    const DOT_RADIUS = 0.05;
+    const pickables = [];
 
-        const animate = () => {
-        rafId = requestAnimationFrame(animate);
-
-        const N = Math.min(noradIds.length, MAX_SATS);
-        for (let i = 0; i < N; i++) {
-            if (!initialized[i]) continue;
-            const t = targets[i];
-            if (t) currents[i].lerp(t, LERP);
-            _m.compose(currents[i], _q, _s);
-            swarm.setMatrixAt(i, _m);
-        }
-        swarm.instanceMatrix.needsUpdate = true;
-
-        controls.update();
-        renderer.render(scene, camera);
-        };
-        animate();
-
-        //resize handling
-        const onResize = () => {
-            const w2 = container.clientWidth;
-            const h2 = container.clientHeight;
-            camera.aspect = w2 / h2;
-            camera.updateProjectionMatrix();
-            renderer.setSize(w2, h2);
-            };
-        const ro = new ResizeObserver(onResize);
-        ro.observe(container);
-
-        
-        //Cleanup
-        return () => {
-        cancelAnimationFrame(rafId);
-        ro.disconnect();
-        controls.dispose();
-        
-        swarmStop = true;
-        scene.remove(swarm);
-        satGeom.dispose();
-        satMat.dispose();
-        cancelAnimationFrame(rafId);
-        
-        if (countriesGroup) scene.remove(countriesGroup);
-        scene.remove(line);
-        starObjs.forEach(({ stars }) => scene.remove(stars));
-
-
-        edges.dispose();
-        geometry.dispose();
-        lineMat.dispose();
-
-        starObjs.forEach(({ geom, mat, tex }) => {
-            geom.dispose();
-            mat.dispose();
-            tex?.dispose?.();
+    (async () => {
+      const allIds = await fetchIds(1000);
+      const ids = sampleUnique(allIds, COUNT);
+      ids.forEach((id, i) => {
+        const dot = new SatelliteDot({
+          scene,
+          noradId: id,
+          earthRadius: 5,
+          dotRadius: DOT_RADIUS,
+          pollMs: 2500 + (i % 20) * 120, // ~2.5–4.9s (jitter)
+          lerpSpeed: 6,
+          baseUrl: BASE,
         });
+        sats.push(dot);
+        pickables.push(dot.mesh);
+        const t = setTimeout(() => dot.start(), (i % 30) * 100); // stagger up to 3s
+        startTimers.push(t);
+      });
+    })();
 
-        renderer.dispose();
-        container.removeChild(renderer.domElement);
-        };
-    }, []);
+    // picking
+    renderer.domElement.style.cursor = "auto";
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    let hovered = null;
+    let selected = null;
+
+    async function loadSummary(noradId) {
+      try {
+        summaryAbortRef.current?.abort?.();
+        const ac = new AbortController();
+        summaryAbortRef.current = ac;
+        setSummaryOpen(true);
+        setSummaryLoading(true);
+        setSummaryError(null);
+        setSummaryData(null);
+        const data = await fetchSummary(noradId, { signal: ac.signal });
+        setSummaryData(data);
+      } catch (e) {
+        if (e.name !== "AbortError") setSummaryError(e);
+      } finally {
+        setSummaryLoading(false);
+      }
+    }
+
+    async function onClick(e) {
+      const ndc = eventToNDC(renderer.domElement, e);
+      raycaster.setFromCamera(ndc, camera);
+      const hits = raycaster.intersectObjects(pickables, true);
+      if (!hits.length) return;
+
+      const dot = findSatDot(hits[0].object);
+      if (!dot) return;
+
+      // deselect previous
+      if (selected && selected !== dot) {
+        selected.setSelected(false);
+        await selected.hideOrbit();
+      }
+
+      // toggle if clicking same one
+      if (selected === dot) {
+        await dot.hideOrbit();
+        dot.setSelected(false);
+        selected = null;
+        setSummaryOpen(false);
+        summaryAbortRef.current?.abort?.();
+      } else {
+        dot.setSelected(true);
+        await dot.showOrbit();
+        selected = dot;
+        loadSummary(dot.noradId);
+      }
+    }
+    renderer.domElement.addEventListener("click", onClick);
+
+    function onPointerMove(e) {
+      const ndc = eventToNDC(renderer.domElement, e);
+      mouse.x = ndc.x;
+      mouse.y = ndc.y;
+
+      raycaster.setFromCamera(mouse, camera);
+      const hits = raycaster.intersectObjects(pickables, false);
+      renderer.domElement.style.cursor = hits.length ? "pointer" : "auto";
+
+      const dot = hits.length ? findSatDot(hits[0].object) : null;
+      if (dot !== hovered) {
+        if (hovered) hovered.setHover(false);
+        if (dot) dot.setHover(true);
+        hovered = dot;
+      }
+    }
+    renderer.domElement.addEventListener("pointermove", onPointerMove);
+
+    // stars
+    const starObjs = createStars(scene, {
+      starCount: 4000,
+      minRadius: controls.maxDistance + 0.5,
+      maxRadius: camera.far * 0.95,
+      texturePaths: ["/trans_star.png", "/trans_star2.png", "/trans_star3.png", "/trans_star4.png"],
+    });
+
+    // loop
+    let rafId = 0;
+    let last = performance.now();
+    const animate = () => {
+      rafId = requestAnimationFrame(animate);
+      const now = performance.now();
+      const dt = (now - last) / 1000;
+      last = now;
+
+      for (const d of sats) d.update(dt);
+
+      controls.update();
+      renderer.render(scene, camera);
+    };
+    animate();
+
+    // resize
+    const onResize = () => {
+      const w2 = container.clientWidth;
+      const h2 = container.clientHeight;
+      camera.aspect = w2 / h2;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w2, h2);
+    };
+    const ro = new ResizeObserver(onResize);
+    ro.observe(container);
+
+    // cleanup
+    return () => {
+      clearInterval(clock);
+      cancelAnimationFrame(rafId);
+      ro.disconnect();
+      controls.dispose();
+      summaryAbortRef.current?.abort?.();
+
+      if (countriesGroup) scene.remove(countriesGroup);
+      scene.remove(line);
+      disposeStars(scene, starObjs);
+
+      startTimers.forEach(clearTimeout);
+      sats.forEach((d) => d.dispose());
+
+      edges.dispose();
+      geometry.dispose();
+      lineMat.dispose();
+
+      renderer.domElement.removeEventListener("pointermove", onPointerMove);
+      renderer.domElement.removeEventListener("click", onClick);
+
+      renderer.dispose();
+      container.removeChild(renderer.domElement);
+    };
+  }, []);
 
   return (
-    <div
-      ref={containerRef}
-      style={{ position: "fixed", inset: 0, overflow: "hidden" }}
-    ><ClockHUD utc={utc} /></div>
+    <div ref={containerRef} style={{ position: "fixed", inset: 0, overflow: "hidden" }}>
+      <ClockHUD utc={utc} />
+      {summaryOpen && (
+        <SummaryCard
+          data={summaryData}
+          loading={summaryLoading}
+          error={summaryError}
+          onClose={() => {
+            setSummaryOpen(false);
+            summaryAbortRef.current?.abort?.();
+          }}
+        />
+      )}
+    </div>
   );
 }
