@@ -42,6 +42,11 @@ export class SatelliteDot {
     this.glow.userData.satRef = this;
     this.mesh.add(this.glow);
 
+    this._pulseOn = false;
+    this._pulseT = 0;          // time accumulator for pulse
+    this._glowBaseOpacity = 0.4;
+    this._glowBaseScale = 0.7;   // starting scale for glow
+
     this.current = new THREE.Vector3(0, 0, earthRadius * 1.02);
     this.target = this.current.clone();
 
@@ -77,9 +82,19 @@ export class SatelliteDot {
 
   // call every frame; dt in seconds
   update(dt) {
-    const k = 1 - Math.exp(-this.lerpSpeed * dt);
-    this.current.lerp(this.target, k);
-    this.mesh.position.copy(this.current);
+  const k = 1 - Math.exp(-this.lerpSpeed * dt);
+  this.current.lerp(this.target, k);
+  this.mesh.position.copy(this.current);
+
+  // pulse the glow if selected
+  if (this._pulseOn) {
+    this._pulseT += dt;
+    const freq = 1;                           // ~1 pulse per second
+    const s = 0.75 + 0.35 * (1 + Math.sin(2 * Math.PI * freq * this._pulseT)); // 0.75..1.45
+    const op = 0.25 + 0.35 * (0.5 + 0.5 * Math.sin(2 * Math.PI * freq * this._pulseT)); // 0.25..0.60
+    this.glow.scale.setScalar(this._glowBaseScale * s);
+    this.glow.material.opacity = op;
+  }
   }
 
   setHover(flag) {
