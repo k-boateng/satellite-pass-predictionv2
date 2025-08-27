@@ -134,48 +134,65 @@ export class SatelliteDot {
   }
 
   async showOrbit() {
-    await hideOrbit(); //Clears everything first
-    try {
-    //Fetches groundtrack from the api
-      const r = await fetch(`${this.baseUrl}/api/satellites/${this.noradId}/groundtrack?step_s=60`);
-      if (!r.ok) return;
-      const data = await r.json();
-      const pts = data.points;
+  await this.hideOrbit(); // clear any previous orbit first
 
-    // build segments, splitting at the date-line seam
-      const group = new THREE.Group();
-      const seg = [];
-      let prevLon = null;
-      const radius = this.earthRadius * 1.003;
+  try {
+    // 1) get current altitude
+    const stateRes = await fetch(`${this.baseUrl}/api/satellites/${this.noradId}/state`);
+    if (!stateRes.ok) return;
+    const s = await stateRes.json();
+    const altKm = s.alt_km ?? 0;
 
-      const makeLine = (arr) => {
-        if (arr.length < 2) return;
-        const verts = [];
-        for (const [lat, lon] of arr) {
-          const v = latLonAltToVec3(lat, lon, 0, radius);
-          verts.push(v.x, v.y, v.z);
-        }
-        const geom = new THREE.BufferGeometry();
-        geom.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
-        const mat = new THREE.LineBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.9 });
-        const line = new THREE.Line(geom, mat);
-        line.renderOrder = 4;
-        group.add(line);
-      };
+    // scene radius at this altitude
+    const orbitRadius = this.earthRadius * (1 + altKm / 6371);
 
-      for (const [lat, lon] of pts) {
-        if (prevLon !== null && Math.abs(lon - prevLon) > 180) {
-          makeLine(seg.splice(0, seg.length)); // flush segment
-        }
-        seg.push([lat, lon]);
-        prevLon = lon;
+    //get the groundtrack lat/lon series
+    const r = await fetch(`${this.baseUrl}/api/satellites/${this.noradId}/groundtrack?step_s=60`);
+    if (!r.ok) return;
+    const data = await r.json();
+    const pts = data.points || [];  // [[lat, lon], ...]
+
+    if (!Array.isArray(pts) || pts.length < 2) return;
+
+    // build a 3D "space orbit" line at orbitRadius
+    const group = new THREE.Group();
+
+    const addSeg = (arr) => {
+      if (!arr || arr.length < 2) return;
+      const verts = [];
+      for (const [la, lo] of arr) {
+        // place this vertex at the satellite's altitude
+        const v = latLonAltToVec3(la, lo, 0, orbitRadius);
+        verts.push(v.x, v.y, v.z);
       }
-      makeLine(seg);
+      const geom = new THREE.BufferGeometry();
+      geom.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+      const mat = new THREE.LineBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.9 });
+      const line = new THREE.Line(geom, mat);
+      line.renderOrder = 4;
+      group.add(line);
+    };
 
-      this.scene.add(group);
-      this.orbitGroup = group;
-    } catch {}
+    // Start segment with the satellite’s current position so it "originates" from the dot
+    let seg = [[s.lat, s.lon]];
+    let prevLon = s.lon;
+
+    for (const [la, lo] of pts) {
+      if (prevLon !== null && Math.abs(lo - prevLon) > 180) {
+        addSeg(seg);
+        seg = [];
+      }
+      seg.push([la, lo]);
+      prevLon = lo;
+    }
+    addSeg(seg);
+
+    this.scene.add(group);
+    this.orbitGroup = group;
+  } catch (e) {
+    console.warn("space-orbit error", this.noradId, e);
   }
+}
 
     async hideOrbit() {
 
