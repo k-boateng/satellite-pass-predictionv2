@@ -28,6 +28,8 @@ export default function GlobeScene() {
         const w = container.clientWidth;
         const h = container.clientHeight;
 
+        //UTC Clock
+        const clock = setInterval(() => setUtc(new Date()), 1000);
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xfaf7f0);
@@ -282,7 +284,7 @@ export default function GlobeScene() {
   return (
     <div
       ref={containerRef}
-      style={{ width: "100vw", height: "100vh", overflow: "hidden" }}
-    />
+      style={{ position: "fixed", inset: 0, overflow: "hidden" }}
+    ><ClockHUD utc={utc} /></div>
   );
 }
