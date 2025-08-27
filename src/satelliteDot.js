@@ -107,7 +107,30 @@ export class SatelliteDot {
 
   setSelected(flag) {
     this._selected = flag;
-    this.mesh.material.color.set(flag ? 0x00ff00 : (this._hovered ? 0xffa500 : this._baseColor));
+
+    const base = this._baseColor ?? 0xff0000;
+    if (flag) {
+        // dot turns green
+        this.mesh.material.color.set(0x00ff00);
+
+        // pulse on: show glow, make it green
+        this._pulseOn = true;
+        this._pulseT = 0;
+        this.glow.visible = true;
+        this.glow.material.color.set(0x00ff00);   // green halo when selected
+        this.glow.material.opacity = this._glowBaseOpacity;
+        this.glow.scale.setScalar(this._glowBaseScale);
+    } else {
+        // back to base or hover color
+        this.mesh.material.color.set(this._hovered ? 0xffa500 : base);
+
+        // pulse off: restore orange hover behavior
+        this._pulseOn = false;
+        this.glow.material.color.set(0xffa500);
+        this.glow.material.opacity = this._glowBaseOpacity;
+        this.glow.scale.setScalar(this._glowBaseScale);
+        this.glow.visible = this._hovered; // only show on hover now
+    }
   }
 
   async showOrbit() {
