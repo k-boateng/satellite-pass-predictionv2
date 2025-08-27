@@ -1,8 +1,14 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { drawThreeGeo } from "./threeGeoJSON.js";
-import { latLonAltToVec3 } from "./latlonToVector.js"
+import { SatelliteDot } from "./satelliteDot.js";
+import ClockHUD from "./Hud.jsx";
+import SummaryCard from "./SummaryCard.jsx";
+import { BASE, fetchIds, fetchGeoJSON, fetchSummary } from "./utils/api.js";
+import { sampleUnique } from "./utils/random.js";
+import { eventToNDC, findSatRef } from "./utils/picking.js";
+import { createStars, disposeStars } from "./utils/stars.js";
 
 
 export default function GlobeScene() {
@@ -273,5 +279,3 @@ export default function GlobeScene() {
     />
   );
 }
-
-
