@@ -1,6 +1,8 @@
 // Use Vercel env in prod; fall back to localhost in dev; allow same-origin if a Vercel rewrite is done.
-const envBase = (import.meta?.env?.VITE_API_BASE ?? process.env.REACT_APP_API_BASE ?? "").trim();
-const isLocal = typeof window !== "undefined" && /^(localhost|127\.0\.0\.1)/.test(window.location.hostname);
+const envBase = (import.meta.env?.VITE_API_BASE ?? "").trim();
+const isLocal =
+  typeof window !== "undefined" &&
+  /^(localhost|127\.0\.0\.1)/.test(window.location.hostname);
 
 export const BASE = (envBase || (isLocal ? "http://127.0.0.1:8000" : "")).replace(/\/$/, "");
 
