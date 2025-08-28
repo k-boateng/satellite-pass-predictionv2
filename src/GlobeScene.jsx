@@ -147,6 +147,7 @@ export default function GlobeScene() {
       // deselect previous
       if (selected && selected !== dot) {
         selected.setSelected(false);
+        selected.setHover(false);
         await selected.hideOrbit();
       }
 
@@ -154,11 +155,13 @@ export default function GlobeScene() {
       if (selected === dot) {
         await dot.hideOrbit();
         dot.setSelected(false);
+        dot.setHover(false);
         selected = null;
         setSummaryOpen(false);
         summaryAbortRef.current?.abort?.();
       } else {
         dot.setSelected(true);
+        dot.setHover(true);
         await dot.showOrbit();
         selected = dot;
         loadSummary(dot.noradId);
@@ -172,13 +175,13 @@ export default function GlobeScene() {
       mouse.y = ndc.y;
 
       raycaster.setFromCamera(mouse, camera);
-      const hits = raycaster.intersectObjects(pickables, false);
+      const hits = raycaster.intersectObjects(pickables, true);
       renderer.domElement.style.cursor = hits.length ? "pointer" : "auto";
 
       const dot = hits.length ? findSatDot(hits[0].object) : null;
       if (dot !== hovered) {
-        if (hovered) hovered.setHover(false);
-        if (dot) dot.setHover(true);
+        if (hovered && hovered !== selected) hovered.setHover(false);
+        if (dot && dot !== selected) dot.setHover(true);
         hovered = dot;
       }
     }
