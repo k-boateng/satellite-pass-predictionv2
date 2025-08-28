@@ -10,8 +10,8 @@ app.include_router(router, prefix="/api")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_credentials=True,
+    allow_origins=["http://localhost:5173"],          # dev
+    allow_origin_regex=r"https://.*\.vercel\.app$",   # any vercel.app domain
     allow_methods=["*"],
     allow_headers=["*"],
 )
