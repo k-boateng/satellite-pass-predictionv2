@@ -10,8 +10,7 @@ Backend (FastAPI + Skyfield) serves data from TLEs; frontend (React + Three.js) 
 
 ## What it does
 - Renders a globe with moving satellite dots
-- Click a dot → small card shows: name, NORAD, velocity, altitude, period and TLE epoch
-- Bottom-right UTC clock -> shows satellite's orbit in the next 24hrs
+- Click a dot → small card shows: name, NORAD, velocity, altitude, period and TLE epoch -> shows satellite's orbit in the next 24hrs
 - Smooth updates with staggered polling
 
 ## Project layout
