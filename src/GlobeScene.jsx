@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { drawThreeGeo } from "./threeGeoJSON.js";
 import { SatelliteDot } from "./satelliteDot.js";
-import ClockHUD from "./Hud.jsx";
+import ClockHUD from "./hud.jsx";
 import SummaryCard from "./SummaryCard.jsx";
 
 // NEW utils
